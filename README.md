@@ -101,7 +101,8 @@ d. Program paddock.c dapat call function yang berada di dalam actions.c.
 e. Program paddock.c tidak keluar/terminate saat terjadi error dan akan log semua percakapan antara paddock.c dan driver.c di dalam file race.log
 
 Format log:
-[Source] [DD/MM/YY hh:mm:ss]: [Command] [Additional-info]
+
+`[Source] [DD/MM/YY hh:mm:ss]: [Command] [Additional-info]`
 
 ex :
 
@@ -391,13 +392,92 @@ int main(int argc, char *argv[])
 
 ```
 #### > Penjelasan
-- actions.c
+**actions.c**
 
-- paddock.c
+1. `gap(float jarak)`
 
-- driver.c
+- Fungsi ini mengambil parameter float bernama jarak.
+- Jika jarak kurang dari 3,5, fungsi mengembalikan "Gogogo".
+- Jika jarak berada di antara 3,5 dan 10, fungsi mengembalikan "Push".
+- Jika tidak, fungsi menyarankan untuk "Stay out of trouble".
 
+2. `fuel(int sisaBensin)`
+- Fungsi ini mengambil parameter int bernama sisaBensin.
+- Jika sisaBensin lebih dari 80, fungsi menyarankan untuk "Push Push Push".
+- Jika sisaBensin berada di antara 50 dan 80 , fungsi mengindikasikan bahwa Anda bisa melanjutkan perjalanan dengan pesan "You can go".
+- Jika tidak, fungsi menyarankan untuk "Conserve Fuel" .
+
+3. `tire(int sisaBan)`
+- Fungsi ini mengambil parameter int bernama sisaBan.
+- Jika sisaBan lebih dari 80, fungsi menyarankan untuk "Go Push Go Push".
+- Jika sisaBan berada di antara 50 dan 80, fungsi menyatakan "Good Tire Wear".
+- Jika sisaBan berada di antara 30 dan 50, fungsi menyarankan untuk "Conserve Your Tire".
+- Jika tidak, fungsi menyarankan untuk pit stop dengan pesan "Box Box Box".
+  
+4. `tireChange(char *tipeBan)`
+- Fungsi ini mengambil parameter char* bernama tipeBan.
+- Jika tipeBan adalah "Soft", fungsi mengindikasikan bahwa "Mediums Ready".
+- Jika tipeBan adalah "Medium", fungsi menyarankan untuk "Box for Softs".
+- Jika tidak, fungsi dengan humor menyarankan untuk "Pasang Dulu Ban Lu Brok".
+
+**paddock.c**
+1. `raceLog(const char *source, const char *command, const char *addInfo)`
+- Fungsi ini bertanggung jawab untuk mencatat log ke file `/home/zwaneee/sisop/modul3/server/race.log`.
+- Parameter:
+	- `source`: String yang menunjukkan sumber log (misalnya “Driver” atau “Paddock”).
+	- `command`: String yang berisi perintah atau tindakan yang dicatat.
+	- `addInfo`: String yang berisi informasi tambahan terkait perintah.
+- Fungsi membuka file log, menulis entri log dengan format tanggal dan waktu, dan kemudian menutup file.
+  
+2. `main()`
+- Fungsi utama program.
+- Langkah-langkah yang dilakukan:
+	- Fork proses agar program berjalan sebagai daemon.
+	- Mengatur hak akses file dengan `umask(0)`.
+	- Membuat session ID baru dengan `setsid()`.
+	- Mengubah direktori kerja ke root dengan `(chdir("/"))`.
+	- Menutup file descriptor standar (stdin, stdout, stderr).
+	- Membuka log dengan `openlog("paddock", LOG_PID, LOG_DAEMON)`.
+	- Menerima koneksi dari socket dan memproses perintah yang diterima.
+	- Mencatat log dan mengirim respons ke klien.
+	- Menutup socket dan mengakhiri program.
+
+3. `Pengolahan Perintah`
+- Program menerima perintah dalam format `[command] : [info]`.
+- Jika format sesuai, program memeriksa jenis perintah dan mengambil informasi terkait.
+- Berdasarkan jenis perintah, program memanggil fungsi yang sesuai (seperti `gap`, `fuel`, `tire`, atau `tireChange`).
+- Jika format tidak sesuai, program mengirim respons “Format pesan tidak valid”.
+   
+4. `Logging`
+Setiap perintah yang diterima dan respons yang dikirim dicatat dalam log.
+Log mencatat sumber (Driver atau Paddock), perintah, dan informasi terkait.
+
+**driver.c**
+1. Inisialisasi Socket dan Koneksi:
+- Program ini bertanggung jawab untuk menginisialisasi socket dan melakukan koneksi ke server.
+- Membuat socket dengan socket`(AF_INET, SOCK_STREAM, 0)`.
+- Mengatur alamat server dengan `serv_addr.sin_family` dan `serv_addr.sin_port`.
+- Mengonversi alamat IP ke format biner dengan `inet_pton(AF_INET, IP, &serv_addr.sin_addr)`.
+- Membuat koneksi dengan `connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr))`.
+
+2. Membaca Pesan dan Mengirim Response:
+- Program membaca perintah dan informasi dari argumen baris perintah.
+- Menggabungkan perintah dan informasi menjadi pesan dengan `sprintf`.
+- Mengirim pesan ke server dengan `send(sock, message, strlen(message), 0)`.
+
+3. Menerima Response:
+- Program menerima respons dari server dengan `recv(sock, buffer, sizeof(buffer), 0)`.
+- Jika pengiriman respons gagal, program menampilkan pesan kesalahan.
+- Jika berhasil, program mencetak respons ke layar.
+  
 #### > Dokumentasi
+<img width="1710" alt="image" src="https://github.com/HazwanAdhikara/Sisop-3-2024-MH-IT13/assets/151142830/665b1dbd-5a92-496c-aceb-782587d06a33">
+<img width="1710" alt="image" src="https://github.com/HazwanAdhikara/Sisop-3-2024-MH-IT13/assets/151142830/9d6013b4-0774-4a8e-833f-3c5416c25467">
+<img width="1710" alt="image" src="https://github.com/HazwanAdhikara/Sisop-3-2024-MH-IT13/assets/151142830/ae8ab9ee-5b68-4fb9-bb10-2568b5a71752">
+<img width="1710" alt="image" src="https://github.com/HazwanAdhikara/Sisop-3-2024-MH-IT13/assets/151142830/0f7780bb-aa8c-4254-a681-ee42e03871d8">
+<img width="1710" alt="image" src="https://github.com/HazwanAdhikara/Sisop-3-2024-MH-IT13/assets/151142830/43dd05b2-c3e2-4672-b58f-4ec56d6280d2">
+
+
 #### > Revisi
 
 ---
