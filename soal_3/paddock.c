@@ -7,8 +7,18 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include "actions.h"
+#include <time.h>
 
 #define PORT 8081
+
+void raceLog(const char *source, const char *command, const char *addInfo)
+{
+    FILE *logFile = fopen("/home/zwaneee/sisop/modul3/server/race.log", "a");
+    time_t current = time(0);
+    struct tm *tm = localtime(&current);
+    fprintf(logFile, "[%s] [%02d/%02d/%04d %02d:%02d:%02d]: [%s] [%s]\n", source, tm->tm_mday, tm->tm_mon + 1, tm->tm_year + 1900, tm->tm_hour, tm->tm_min, tm->tm_sec, command, addInfo);
+    fclose(logFile);
+}
 
 int main()
 {
@@ -85,26 +95,26 @@ int main()
         syslog(LOG_INFO, "Received: %s", buffer);
 
         char command[50], info[50];
-        if (sscanf(buffer, "[%[^]]] : [%[^]]", command, info) == 2)
+        if (sscanf(buffer, "[%[^]]] : [%[^]]", command, info) == 2) // membaca string dengan format tertentu
         {
-            if (strcmp(command, "[Driver]") == 0)
+            if (strcmp(command, "Gap") == 0)
             {
                 float jarak = atof(info);
                 response = gap(jarak);
             }
-            else if (strcmp(command, "[Fuel]") == 0)
+            else if (strcmp(command, "Fuel") == 0)
             {
 
                 int sisaBensin = atoi(info);
                 response = fuel(sisaBensin);
             }
-            else if (strcmp(command, "[Tire]") == 0)
+            else if (strcmp(command, "Tire") == 0)
             {
 
                 int sisaBan = atoi(info);
                 response = tire(sisaBan);
             }
-            else if (strcmp(command, "[TireChange]") == 0)
+            else if (strcmp(command, "TireChange") == 0)
             {
                 response = tireChange(info);
             }
@@ -117,7 +127,8 @@ int main()
         {
             response = "Format pesan tidak valid";
         }
-
+        raceLog("Driver", command, info);      // nyatet log
+        raceLog("Paddock", command, response); // nyatet log
         send(new_socket, response, strlen(response), 0);
         syslog(LOG_INFO, "Response sent: %s", response);
 

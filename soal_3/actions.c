@@ -6,7 +6,7 @@ char *gap(float jarak)
 {
     if (jarak < 3.5)
         return "Gogogo";
-    else if (jarak > 3.5 && jarak <= 10)
+    else if (jarak >= 3.5 && jarak <= 10)
         return "Push";
     else
         return "Stay out of trouble";
@@ -38,6 +38,8 @@ char *tireChange(char *tipeBan)
 {
     if (strcmp(tipeBan, "Soft") == 0)
         return "Mediums Ready";
-    else
+    else if (strcmp(tipeBan, "Medium") == 0)
         return "Box for Softs";
+    else
+        return "Pasang Dulu Ban Lu Brok";
 }

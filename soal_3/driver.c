@@ -39,9 +39,9 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
-    // Construct message
+    // Membaca Pesan
     char message[256];
-    sprintf(message, "-c [%s] -i [%s]", argv[2], argv[4]);
+    sprintf(message, "[%s] : [%s]", argv[2], argv[4]);
 
     // Mengirim Response
     send(sock, message, strlen(message), 0);
@@ -55,7 +55,6 @@ int main(int argc, char *argv[])
         close(sock);
         exit(EXIT_FAILURE);
     }
-
     printf("Response : %s\n", buffer);
 
     close(sock);
