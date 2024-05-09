@@ -66,7 +66,240 @@ Struktur Repository Seperti Berikut:
 `>Rayyan`
 
 ### > Isi Soal
+Max Verstappen 🏎️ seorang pembalap F1 dan programer memiliki seorang adik bernama Min Verstappen (masih SD) sedang menghadapi tahap paling kelam dalam kehidupan yaitu perkalian matematika, Min meminta bantuan Max untuk membuat kalkulator perkalian sederhana (satu sampai sembilan). Sembari Max nguli dia menyuruh Min untuk belajar perkalian dari web (referensi) agar tidak bergantung pada kalkulator.
+**(Wajib menerapkan konsep pipes dan fork seperti yang dijelaskan di modul Sisop. Gunakan 2 pipes dengan diagram seperti di modul 3).**
+
+a.) Sesuai request dari adiknya Max ingin nama programnya dudududu.c. Sebelum program parent process dan child process, ada input dari user berupa 2 string. Contoh input: tiga tujuh. 
+
+b.) Pada parent process, program akan mengubah input menjadi angka dan melakukan perkalian dari angka yang telah diubah. Contoh: tiga tujuh menjadi 21. 
+
+c.) Pada child process, program akan mengubah hasil angka yang telah diperoleh dari parent process menjadi kalimat. Contoh: `21` menjadi “dua puluh satu”.
+
+d.) Max ingin membuat program kalkulator dapat melakukan penjumlahan, pengurangan, dan pembagian, maka pada program buatlah argumen untuk menjalankan program : 
+- I.   perkalian	: ./kalkulator -kali
+- II.  penjumlahan	: ./kalkulator -tambah
+- III. pengurangan	: ./kalkulator -kurang
+- IV.  pembagian	: ./kalkulator -bagi
+
+Beberapa hari kemudian karena Max terpaksa keluar dari Australian Grand Prix 2024 membuat Max tidak bersemangat untuk melanjutkan programnya sehingga kalkulator yang dibuatnya cuma menampilkan hasil positif jika bernilai negatif maka program akan print “ERROR” serta cuma menampilkan bilangan bulat jika ada bilangan desimal maka dibulatkan ke bawah.
+
+e.) Setelah diberi semangat, Max pun melanjutkan programnya dia ingin (pada child process) kalimat akan di print dengan contoh format : 
+- I.   perkalian	: “hasil perkalian tiga dan tujuh adalah dua puluh satu.”
+- II.  penjumlahan	: “hasil penjumlahan tiga dan tujuh adalah sepuluh.”
+- III. pengurangan	: “hasil pengurangan tujuh dan tiga adalah empat.”
+- IV.  pembagian	: “hasil pembagian tujuh dan tiga adalah dua.”
+
+f.) Max ingin hasil dari setiap perhitungan dicatat dalam sebuah log yang diberi nama histori.log. Pada parent process, lakukan pembuatan file log berdasarkan data yang dikirim dari child process. 
+- Format: [date] [type] [message]
+- Type: KALI, TAMBAH, KURANG, BAGI
+- Ex:
+  - [10/03/24 00:29:47] [KALI] tujuh kali enam sama dengan empat puluh dua.
+  - [10/03/24 00:30:00] [TAMBAH] sembilan tambah sepuluh sama dengan sembilan belas.
+  - [10/03/24 00:30:12] [KURANG] ERROR pada pengurangan.
+
 #### > Penyelesaian
+### **`auth.c`**
+
+```bash
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
+#include <dirent.h>
+
+int main() {
+    int key = 87654321;
+    DIR *dir = opendir("new-data");
+    if (dir == NULL) {
+        perror("opendir");
+        exit(1);
+    }
+
+    struct dirent *entry;
+    int shm_key = 87654321;
+    while ((entry = readdir(dir)) != NULL) {
+        if ((strstr(entry->d_name, "trashcan.csv") || strstr(entry->d_name, "parkinglot.csv"))) {
+            int shmid = shmget(shm_key, 1024, IPC_CREAT | 0666);
+            if (shmid == -1) {
+                perror("shmget");
+                exit(1);
+            }
+
+            char *shared_memory = shmat(shmid, NULL, 0);
+            if (shared_memory == (char *) -1) {
+                perror("shmat");
+                exit(1);
+            }
+
+            strcpy(shared_memory, entry->d_name);
+
+            shmdt(shared_memory);
+
+            // Increment key buat shared memory segment selanjutnya
+            shm_key++;
+        } else {
+            char filePath[1024];
+            snprintf(filePath, sizeof(filePath), "new-data/%s", entry->d_name);
+            remove(filePath);
+        }
+    }
+
+    closedir(dir);
+
+    return 0;
+}
+```
+### **`rate.c`**
+
+```bash
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
+
+int main() {
+    int baseKey = 87654321; 
+    int shmid;
+    char *shared_memory;
+
+    for (int i = 0; ; i++) {
+        int key = baseKey + i; 
+        shmid = shmget(key, 1024, 0666);
+        if (shmid == -1) {
+            break;
+        }
+        shared_memory = shmat(shmid, NULL, 0);
+        if (shared_memory == (char *) -1) {
+            perror("shmat");
+            exit(1);
+        }
+
+        printf("Contents of shared memory: %s\n", shared_memory);
+      
+        char *filename = shared_memory;
+        const char *type;
+        if (strstr(filename,"trashcan.csv")){
+            type = "Trash can";
+        } else {
+            type = "Parking lot";
+        }
+        char fullpath[1024];
+        strcpy(fullpath, "/home/rrayyaann/sisop/percobaan/m3s1/new-data/"); 
+        strcat(fullpath, filename); 
+        printf("Attempting to open file at: %s\n", fullpath);
+        FILE *file = fopen(fullpath, "r");
+        if (!file) {
+            perror("fopen");
+            exit(1);
+        }
+
+        char line[1024];
+        float maxRating = 0.0;
+        char bestName[256] = {0};
+
+        while (fgets(line, sizeof(line), file)) {
+            char *name = strtok(line, ",");
+            char *rating_str = strtok(NULL, ",");
+            float rating = atof(rating_str);
+
+            if (rating > maxRating) {
+                maxRating = rating;
+                strcpy(bestName, name);
+            } else if (rating == maxRating) {
+                strcat(bestName, ", "); 
+                strcat(bestName, name);
+            }
+        }
+
+        fclose(file);
+
+        printf("Type: %s\n", type);
+        printf("Filename: %s\n", filename);
+        printf("------------\n");
+        printf("Name: %s\n", bestName);
+        printf("Rating: %.1f\n\n", maxRating);
+
+        shmdt(shared_memory);
+    }
+
+    return 0;
+}
+```
+### **`db.c`**
+
+```bash
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
+#include <time.h>
+
+int main() {
+    int key = 87654321;
+    int shmid;
+    char *shared_memory;
+
+    for (int i=0; ; i++){
+        key += i;
+        int shmid = shmget(key, 1024, 0666);
+        if (shmid == -1) {
+            break;
+        }
+
+        shared_memory = shmat(shmid, NULL, 0);
+        if (shared_memory == (char *) -1) {
+            perror("shmat");
+            exit(1);
+        }
+
+        // Baca shared memory
+        char *filename = shared_memory;
+        const char *type;
+            if (strstr(filename,"trashcan.csv")){
+                type = "Trash can";
+            } else {
+                type = "Parking lot";
+            }
+
+        // Move file ke directory database
+        char source_path[256], db_path[256];
+        snprintf(source_path, sizeof(source_path), "/home/rrayyaann/sisop/percobaan/m3s1/new-data/%s", filename);
+        snprintf(db_path, sizeof(db_path), "database/%s", filename);
+        if (rename(source_path, db_path) == -1) {
+            perror("rename");
+            printf("Failed to move file");
+        } else {
+            printf("File moved successfully");
+        }
+
+        // Log ke db.log
+        FILE *log_file = fopen("database/db.log", "a");
+        if (log_file == NULL) {
+            perror("fopen");
+            exit(1);
+        }
+      
+        time_t rawtime;
+        struct tm *timeinfo;
+        char buffer[80];
+
+        time(&rawtime);
+        timeinfo = localtime(&rawtime);
+
+        strftime(buffer, sizeof(buffer), "[%d/%m/%y %H:%M:%S]", timeinfo);
+
+        fprintf(log_file, "%s [%s] [%s]\n", buffer, type, filename);
+        fclose(log_file);
+
+        shmdt(shared_memory);
+    }
+    
+    return 0;
+}
+```
 #### > Penjelasan
 #### > Dokumentasi
 #### > Revisi
