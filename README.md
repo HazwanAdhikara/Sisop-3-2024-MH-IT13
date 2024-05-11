@@ -1332,7 +1332,347 @@ Log mencatat sumber (Driver atau Paddock), perintah, dan informasi terkait.
 `>Andre`
 
 ### > Isi Soal
+Lewis Hamilton 🏎 seorang wibu akut dan sering melewatkan beberapa episode yang karena sibuk menjadi asisten. Maka dari itu dia membuat list anime yang sedang ongoing (biar tidak lupa) dan yang completed (anime lama tapi pengen ditonton aja). Tapi setelah Lewis pikir-pikir malah kepikiran untuk membuat list anime. Jadi dia membuat file (harap diunduh) dan ingin menggunakan socket yang baru saja dipelajarinya untuk melakukan CRUD pada list animenya. 
+a. Client dan server terhubung melalui socket. 
+b. Client.c di dalam folder client dan server.c di dalam folder server
+c. Client berfungsi sebagai pengirim pesan dan dapat menerima pesan dari server.
+d. Server berfungsi sebagai penerima pesan dari client dan hanya menampilkan pesan perintah client saja.  
+e. Server digunakan untuk membaca myanimelist.csv. Dimana terjadi pengiriman data antara client ke server dan server ke client.
+- Menampilkan seluruh judul
+- Menampilkan judul berdasarkan genre
+- Menampilkan judul berdasarkan hari
+- Menampilkan status berdasarkan berdasarkan judul
+- Menambahkan anime ke dalam file myanimelist.csv
+- Melakukan edit anime berdasarkan judul
+- Melakukan delete berdasarkan judul
+- Selain command yang diberikan akan menampilkan tulisan “Invalid Command”
+f. Karena Lewis juga ingin track anime yang ditambah, diubah, dan dihapus. Maka dia membuat server dapat mencatat anime yang dihapus dalam sebuah log yang diberi nama change.log.
+- Format: [date] [type] [massage]
+- Type: ADD, EDIT, DEL
+- Ex:
+[29/03/24] [ADD] Kanokari ditambahkan.
+[29/03/24] [EDIT] Kamis,Comedy,Kanokari,completed diubah menjadi Jumat,Action,Naruto,completed.
+[29/03/24] [DEL] Naruto berhasil dihapus.
+g. Koneksi antara client dan server tidak akan terputus jika ada kesalahan input dari client, cuma terputus jika user mengirim pesan “exit”. Program exit dilakukan pada sisi client.
+h. Hasil akhir:
+soal_4/
+    ├── change.log
+    ├── client/
+    │   └── client.c
+    ├── myanimelist.csv
+    └── server/
+        └── server.c
+
 #### > Penyelesaian
+
+####client.c
+```bash
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
+
+#define PORT 8080
+#define MAX_BUFFER_SIZE 1024
+
+int main() {
+    int sock = 0;
+    struct sockaddr_in serv_addr;
+    char buffer[MAX_BUFFER_SIZE] = {0};
+    char command[MAX_BUFFER_SIZE] = {0};
+
+    // Create socket
+    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+        perror("Socket creation failed");
+        exit(EXIT_FAILURE);
+    }
+
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_port = htons(PORT);
+
+    // Convert IPv4 and IPv6 addresses from text to binary form
+    if (inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr) <= 0) {
+        perror("Invalid address/ Address not supported");
+        exit(EXIT_FAILURE);
+    }
+
+    // Connect to server
+    if (connect(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0) {
+        perror("Connection failed");
+        exit(EXIT_FAILURE);
+    }
+
+    // Send commands to server and receive responses
+    while (1) {
+        printf("Enter command: ");
+        fgets(command, MAX_BUFFER_SIZE, stdin);
+        command[strcspn(command, "\n")] = '\0'; // Remove newline character
+
+        send(sock, command, strlen(command), 0);
+
+        // Receive response from server
+        read(sock, buffer, MAX_BUFFER_SIZE);
+        printf("%s\n", buffer);
+        memset(buffer, 0, MAX_BUFFER_SIZE);
+
+        // Check for exit command
+        if (strcmp(command, "exit") == 0) {
+            break;
+        }
+    }
+
+    close(sock);
+
+    return 0;
+}
+```
+server.c
+```bash
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <fcntl.h>
+#include <time.h>
+
+#define PORT 8080
+#define MAX_BUFFER_SIZE 1024
+#define MAX_CHANGE_LOG_SIZE 1024
+
+void write_to_change_log(const char* type, const char* message) {
+    time_t now;
+    struct tm* local_time;
+    char change_log_entry[MAX_CHANGE_LOG_SIZE];
+
+    // Get current time
+    now = time(NULL);
+    local_time = localtime(&now);
+
+    // Format log entry
+    strftime(change_log_entry, MAX_CHANGE_LOG_SIZE, "[%d/%m/%y] [%H:%M:%S]", local_time);
+
+    // Write to change log file
+    FILE* fp = fopen("change.log", "a");
+    if (fp != NULL) {
+        fprintf(fp, "%s [%s] %s\n", change_log_entry, type, message);
+        fclose(fp);
+    }
+}
+
+void handle_client_request(int client_socket) {
+    char buffer[MAX_BUFFER_SIZE] = {0};
+    char response[MAX_BUFFER_SIZE] = {0};
+    char command[MAX_BUFFER_SIZE] = {0};
+    char args[MAX_BUFFER_SIZE] = {0};
+
+    // Read client command and arguments
+    read(client_socket, buffer, MAX_BUFFER_SIZE);
+    sscanf(buffer, "%s %[^\n]", command, args);
+
+    // Perform action based on command
+    if (strcmp(command, "tampilkan") == 0) {
+        // Read data from myanimelist.csv and send titles to client
+        FILE* fp = fopen("myanimelist.csv", "r");
+        if (fp != NULL) {
+            char line[MAX_BUFFER_SIZE];
+            while (fgets(line, sizeof(line), fp) != NULL) {
+                char* token = strtok(line, ",");
+                token = strtok(NULL, ",");
+                token = strtok(NULL, ",");
+                strcat(response, token);
+                strcat(response, "\n");
+            }
+            fclose(fp);
+        } else {
+            strcpy(response, "Error reading myanimelist.csv");
+        }
+    } else if (strcmp(command, "hari") == 0) {
+        // Read day from arguments and send titles with matching day
+        char day[MAX_BUFFER_SIZE];
+        sscanf(args, "%s", day);
+
+        FILE* fp = fopen("myanimelist.csv", "r");
+        if (fp != NULL) {
+            char line[MAX_BUFFER_SIZE];
+            while (fgets(line, sizeof(line), fp) != NULL) {
+                char* token = strtok(line, ",");
+                if (strcmp(token, day) == 0) {
+                    token = strtok(NULL, ",");
+                    token = strtok(NULL, ",");
+                    token = strtok(NULL, ",");
+                    strcat(response, token);
+                    strcat(response, "\n");
+                }
+            }
+            fclose(fp);
+        } else {
+            strcpy(response, "Error reading myanimelist.csv");
+        }
+    } else if (strcmp(command, "genre") == 0) {
+        // Read genre from arguments and send titles with matching genre
+        char genre[MAX_BUFFER_SIZE];
+        sscanf(args, "%s", genre);
+
+        FILE* fp = fopen("myanimelist.csv", "r");
+        if (fp != NULL) {
+            char line[MAX_BUFFER_SIZE];
+            while (fgets(line, sizeof(line), fp) != NULL) {
+                char* token = strtok(line, ",");
+                token = strtok(NULL, ",");
+                if (strcmp(token, genre) == 0) {
+                    token = strtok(NULL, ",");
+                    token = strtok(NULL, ",");
+                    strcat(response, token);
+                    strcat(response, "\n");
+                }
+            }
+            fclose(fp);
+        } else {
+            strcpy(response, "Error reading myanimelist.csv");
+        }
+    } else if (strcmp(command, "status") == 0) {
+        // Read title from arguments and send status of that anime
+        char title[MAX_BUFFER_SIZE];
+        sscanf(args, "%s", title);
+
+        FILE* fp = fopen("myanimelist.csv", "r");
+        if (fp != NULL) {
+            char line[MAX_BUFFER_SIZE];
+            while (fgets(line, sizeof(line), fp) != NULL) {
+                char* token = strtok(line, ",");
+                token = strtok(NULL, ",");
+                token = strtok(NULL, ",");
+                token = strtok(NULL, ",");
+                if (strcmp(token, title) == 0) {
+                    char* status = strtok(NULL, ",");
+                    sprintf(response, "Status of %s: %s", title, status);
+                    break;
+                }
+            }
+            fclose(fp);
+        } else {
+            strcpy(response, "Error reading myanimelist.csv");
+        }
+    } else if (strcmp(command, "exit") == 0) {
+        // Close connection with client
+        strcpy(response, "Closing connection");
+    } else {
+        strcpy(response, "Invalid Command");
+    }
+
+    // Send response to client
+    write(client_socket, response, strlen(response));
+}
+
+int main() {
+    int server_fd, client_socket;
+    struct sockaddr_in address;
+    int addrlen = sizeof(address);
+
+    // Create server socket
+    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
+        perror("Socket creation failed");
+        exit(EXIT_FAILURE);
+    }
+
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = INADDR_ANY;
+    address.sin_port = htons(PORT);
+
+    // Bind server socket to port
+    if (bind(server_fd, (struct sockaddr*)&address, sizeof(address)) < 0) {
+        perror("Bind failed");
+        exit(EXIT_FAILURE);
+    }
+
+    // Listen for incoming connections
+    if (listen(server_fd, 3) < 0) {
+        perror("Listen failed");
+        exit(EXIT_FAILURE);
+    }
+
+    printf("Server started on port %d\n", PORT);
+
+    // Accept incoming connections and handle requests
+    while (1) {
+        printf("Waiting for incoming connections...\n");
+
+        if ((client_socket = accept(server_fd, (struct sockaddr*)&address, (socklen_t*)&addrlen)) < 0) {
+            perror("Accept failed");
+            exit(EXIT_FAILURE);
+        }
+
+        printf("New client connected\n");
+
+        // Handle client request
+        handle_client_request(client_socket);
+
+        // Close the connection with the client
+        close(client_socket);
+        printf("Client disconnected\n");
+    }
+
+    return 0;
+}
+```
+
 #### > Penjelasan
+```bash
+#include
+#define PORT 8080
+#define MAX_BUFFER_SIZE 1024
+```
+Mendefinisikan direktif preprosesor untuk mengimpor berbagai pustaka standar yang diperlukan untuk program ini, seperti stdio.h, stdlib.h, unistd.h, string.h, arpa/inet.h, dan sys/socket.h.
+Mendefinisikan nomor port yang akan digunakan untuk koneksi ke server. Dalam hal ini, port yang digunakan adalah 8080.
+Mendefinisikan ukuran maksimum buffer yang akan digunakan untuk menyimpan data yang diterima atau dikirim melalui koneksi soket.
+
+```bash
+int main():
+int sock = 0;:
+struct sockaddr_in serv_addr;:
+char buffer[MAX_BUFFER_SIZE] = {0};:
+char command[MAX_BUFFER_SIZE] = {0};:
+```
+Mendeklarasikan dan menginisialisasi variabel sock yang akan digunakan untuk menyimpan deskriptor soket.
+Mendeklarasikan struktur serv_addr yang akan digunakan untuk menyimpan informasi alamat server, seperti alamat IP dan nomor port.
+Mendeklarasikan array buffer untuk menyimpan data yang diterima dari server.
+Mendeklarasikan array command untuk menyimpan perintah yang akan dikirim ke server.
+
+```bash
+if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) { ... }:
+serv_addr.sin_family = AF_INET; dan serv_addr.sin_port = htons(PORT);:
+if (inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr) <= 0) { ... }:
+if (connect(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0) { ... }:
+```
+Membuat soket menggunakan fungsi socket(). Jika pembuatan soket gagal, program akan menampilkan pesan kesalahan dan keluar.
+Mengatur jenis alamat dan nomor port dalam struktur serv_addr.
+Mengkonversi alamat IP dari format string menjadi bentuk biner dan menyimpannya dalam struktur serv_addr.
+Mencoba melakukan koneksi ke server menggunakan fungsi connect(). Jika koneksi gagal, program akan menampilkan pesan kesalahan dan keluar.
+
+```bash
+while (1) { ... }:
+fgets(command, MAX_BUFFER_SIZE, stdin);:
+if (strcmp(command, "exit\n") == 0) { ... }:
+send(sock, command, strlen(command), 0);:
+read(sock, buffer, MAX_BUFFER_SIZE);:
+printf("Server response: %s\n", buffer);:
+memset(buffer, 0, MAX_BUFFER_SIZE);:
+close(sock);:
+```
+Memulai loop tak terbatas untuk menerima perintah dari pengguna dan mengirimkannya ke server.
+Membaca perintah dari pengguna dari standar input dan menyimpannya dalam array command.
+Memeriksa apakah perintah yang dimasukkan adalah "exit". Jika ya, program akan mengirimkan perintah tersebut ke server dan keluar dari loop.
+Mengirim perintah yang dimasukkan oleh pengguna ke server menggunakan fungsi send().
+Membaca respons dari server ke dalam array buffer menggunakan fungsi read().
+Menampilkan respons dari server ke layar.
+Membersihkan buffer setelah penggunaan agar tidak ada data yang tersisa.
+Menutup soket setelah selesai digunakan.
+
 #### > Dokumentasi
 #### > Revisi
