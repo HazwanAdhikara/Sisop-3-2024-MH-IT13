@@ -3,65 +3,71 @@
 #include <string.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
-#include <dirent.h>
-#include <libgen.h>
-
-#define SHM_SIZE 1024
-
-typedef struct {
-    char name[100];
-    float rating;
-} Place;
-
-void rate_best(int shm_id) {
-    Place *places = (Place *)shmat(shm_id, NULL, 0);
-    if (places == (Place *)-1) {
-        perror("shmat");
-        exit(1);
-    }
-
-    int num_places = SHM_SIZE / sizeof(Place);
-    Place best_trashcan = {"", -1};
-    Place best_parkinglot = {"", -1};
-
-    for (int i = 0; i < num_places; i++) {
-        if (strcmp(places[i].name, "") == 0) {
-            break;
-        }
-
-        if (strstr(places[i].name, "Trash Can") && places[i].rating > best_trashcan.rating) {
-            best_trashcan = places[i];
-        }
-
-        if (strstr(places[i].name, "Parking Lot") && places[i].rating > best_parkinglot.rating) {
-            best_parkinglot = places[i];
-        }
-    }
-
-    if (best_trashcan.rating != -1) {
-        printf("Best Trash Can: %s (Rating: %.2f)\n", best_trashcan.name, best_trashcan.rating);
-    } else {
-        printf("No Trash Can found.\n");
-    }
-
-    if (best_parkinglot.rating != -1) {
-        printf("Best Parking Lot: %s (Rating: %.2f)\n", best_parkinglot.name, best_parkinglot.rating);
-    } else {
-        printf("No Parking Lot found.\n");
-    }
-
-    shmdt(places);
-}
 
 int main() {
-    key_t key = ftok("rate.c", 65);
-    int shm_id = shmget(key, SHM_SIZE, IPC_CREAT | 0666);
-    if (shm_id < 0) {
-        perror("shmget");
-        exit(1);
-    }
+    int baseKey = 87654321; 
+    int shmid;
+    char *shared_memory;
 
-    rate_best(shm_id);
+    for (int i = 0; ; i++) {
+        int key = baseKey + i; 
+        shmid = shmget(key, 1024, 0666);
+        if (shmid == -1) {
+            break;
+        }
+        shared_memory = shmat(shmid, NULL, 0);
+        if (shared_memory == (char *) -1) {
+            perror("shmat");
+            exit(1);
+        }
+
+        printf("Contents of shared memory: %s\n", shared_memory);
+      
+        char *filename = shared_memory;
+        const char *type;
+        if (strstr(filename,"trashcan.csv")){
+            type = "Trash can";
+        } else {
+            type = "Parking lot";
+        }
+        char fullpath[1024];
+        strcpy(fullpath, "/home/rrayyaann/sisop/percobaan/m3s1/new-data/"); 
+        strcat(fullpath, filename); 
+        printf("Attempting to open file at: %s\n", fullpath);
+        FILE *file = fopen(fullpath, "r");
+        if (!file) {
+            perror("fopen");
+            exit(1);
+        }
+
+        char line[1024];
+        float maxRating = 0.0;
+        char bestName[256] = {0};
+
+        while (fgets(line, sizeof(line), file)) {
+            char *name = strtok(line, ",");
+            char *rating_str = strtok(NULL, ",");
+            float rating = atof(rating_str);
+
+            if (rating > maxRating) {
+                maxRating = rating;
+                strcpy(bestName, name);
+            } else if (rating == maxRating) {
+                strcat(bestName, ", "); 
+                strcat(bestName, name);
+            }
+        }
+
+        fclose(file);
+
+        printf("Type: %s\n", type);
+        printf("Filename: %s\n", filename);
+        printf("------------\n");
+        printf("Name: %s\n", bestName);
+        printf("Rating: %.1f\n\n", maxRating);
+
+        shmdt(shared_memory);
+    }
 
     return 0;
 }
