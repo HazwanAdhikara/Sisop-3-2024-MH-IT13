@@ -1,90 +1,69 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
-#include <dirent.h>
-#include <libgen.h>
 #include <time.h>
 
-#define SHM_SIZE 1024
+int main() {
+    int key = 87654321;
+    int shmid;
+    char *shared_memory;
 
-void move_file(const char *filename, int shm_id) {
-    char *name = strdup(filename);
-    char *base = basename(name);
-    
-    // Move file to microservices/database folder using shared memory
-    FILE *fp = fopen(filename, "r");
-    if (fp) {
-        char buffer[SHM_SIZE];
-        fread(buffer, sizeof(char), SHM_SIZE, fp);
-        fclose(fp);
-        char *shm = (char *)shmat(shm_id, NULL, 0);
-        if (shm == (char *)-1) {
+    for (int i=0; ; i++){
+        key += i;
+        int shmid = shmget(key, 1024, 0666);
+        if (shmid == -1) {
+            break;
+        }
+
+        shared_memory = shmat(shmid, NULL, 0);
+        if (shared_memory == (char *) -1) {
             perror("shmat");
             exit(1);
         }
-        strncpy(shm, buffer, SHM_SIZE);
-        shmdt(shm);
 
-        // Move file to microservices/database folder
-        char new_filename[100];
-        sprintf(new_filename, "./microservices/database/%s", base);
-        if (rename(filename, new_filename) == 0) {
-            // Log the file move operation in db.log
-            time_t rawtime;
-            struct tm *timeinfo;
-            char buffer[80];
-
-            time(&rawtime);
-            timeinfo = localtime(&rawtime);
-
-            strftime(buffer, sizeof(buffer), "%d/%m/%Y %H:%M:%S", timeinfo);
-            FILE *log_fp = fopen("./microservices/database/db.log", "a");
-            if (log_fp) {
-                fprintf(log_fp, "[%s] [%s]\n", buffer, base);
-                fclose(log_fp);
+        // Baca shared memory
+        char *filename = shared_memory;
+        const char *type;
+            if (strstr(filename,"trashcan.csv")){
+                type = "Trash can";
             } else {
-                perror("fopen");
-                exit(1);
+                type = "Parking lot";
             }
-        } else {
+
+        // Move file ke directory database
+        char source_path[256], db_path[256];
+        snprintf(source_path, sizeof(source_path), "/home/rrayyaann/sisop/percobaan/m3s1/new-data/%s", filename);
+        snprintf(db_path, sizeof(db_path), "database/%s", filename);
+        if (rename(source_path, db_path) == -1) {
             perror("rename");
+            printf("Failed to move file");
+        } else {
+            printf("File moved successfully");
+        }
+
+        // Log ke db.log
+        FILE *log_file = fopen("database/db.log", "a");
+        if (log_file == NULL) {
+            perror("fopen");
             exit(1);
         }
-    } else {
-        perror("fopen");
-        exit(1);
+      
+        time_t rawtime;
+        struct tm *timeinfo;
+        char buffer[80];
+
+        time(&rawtime);
+        timeinfo = localtime(&rawtime);
+
+        strftime(buffer, sizeof(buffer), "[%d/%m/%y %H:%M:%S]", timeinfo);
+
+        fprintf(log_file, "%s [%s] [%s]\n", buffer, type, filename);
+        fclose(log_file);
+
+        shmdt(shared_memory);
     }
-
-    free(name);
-}
-
-int main() {
-    key_t key = ftok("db.c", 65);
-    int shm_id = shmget(key, SHM_SIZE, IPC_CREAT | 0666);
-    if (shm_id < 0) {
-        perror("shmget");
-        exit(1);
-    }
-
-    DIR *dir;
-    struct dirent *ent;
-    char *data_dir = "./new-data"; // Direktori yang akan di-scan
-    if ((dir = opendir(data_dir)) != NULL) {
-        while ((ent = readdir(dir)) != NULL) {
-            if (ent->d_type == DT_REG) {  // Regular file
-                char filename[512];
-                snprintf(filename, sizeof(filename), "%s/%s", data_dir, ent->d_name);
-                move_file(filename, shm_id);
-            }
-        }
-        closedir(dir);
-    } else {
-        perror("opendir");
-        exit(1);
-    }
-
+    
     return 0;
 }
