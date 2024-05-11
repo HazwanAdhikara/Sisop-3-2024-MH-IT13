@@ -1365,7 +1365,7 @@ soal_4/
 
 #### > Penyelesaian
 
-####client.c
+#### client.c
 ```bash
 #include <stdio.h>
 #include <stdlib.h>
@@ -1428,7 +1428,7 @@ int main() {
     return 0;
 }
 ```
-server.c
+#### server.c
 ```bash
 #include <stdio.h>
 #include <stdlib.h>
@@ -1624,7 +1624,7 @@ int main() {
 
 #### > Penjelasan
 
-####client.c
+#### client.c
 ```bash
 #include
 #define PORT 8080
@@ -1676,8 +1676,8 @@ Menampilkan respons dari server ke layar.
 Membersihkan buffer setelah penggunaan agar tidak ada data yang tersisa.
 Menutup soket setelah selesai digunakan.
 
-####server.c
-```
+#### server.c
+```bash
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -1692,7 +1692,7 @@ Menutup soket setelah selesai digunakan.
 ```
 Baris-baris ini mengimpor pustaka yang diperlukan untuk pengoperasian socket, manipulasi string, operasi file, dan fungsi waktu.
 
-```
+```bash
 #define PORT 8080
 #define MAX_BUFFER_SIZE 1024
 #define MAX_CHANGE_LOG_SIZE 1024
@@ -1700,7 +1700,7 @@ Baris-baris ini mengimpor pustaka yang diperlukan untuk pengoperasian socket, ma
 Ini mendefinisikan konstanta untuk nomor port server, ukuran maksimum buffer, dan ukuran maksimum log perubahan.
 
 
-```
+```bash
 void write_to_change_log(const char* type, const char* message) {
     time_t now;
     struct tm* local_time;
@@ -1729,7 +1729,7 @@ FILE* fp = fopen("change.log", "a");: Membuka file change.log dalam mode append 
 if (fp != NULL) { ... }: Memeriksa apakah file log berhasil dibuka.
 fprintf(fp, "%s [%s] %s\n", change_log_entry, type, message);: Menulis entri log ke file dengan format yang ditentukan, yang terdiri dari timestamp (change_log_entry), jenis pesan, dan pesan itu sendiri.
 
-```
+```bash
 void handle_client_request(int client_socket) {
     char buffer[MAX_BUFFER_SIZE] = {0};
     char response[MAX_BUFFER_SIZE] = {0};
@@ -1744,7 +1744,7 @@ char buffer[MAX_BUFFER_SIZE] = {0};, char response[MAX_BUFFER_SIZE] = {0};, char
 read(client_socket, buffer, MAX_BUFFER_SIZE);: Membaca data yang dikirim oleh klien ke socket.
 sscanf(buffer, "%s %[^\n]", command, args);: Mem-parsing data yang diterima dari klien. Data ini dianggap terdiri dari sebuah string perintah (command) dan argumen tambahan (args). %s digunakan untuk membaca string tanpa spasi, dan %[^\n] digunakan untuk membaca string hingga karakter newline.
 
-```
+```bash
 FILE* fp = fopen("myanimelist.csv", "r");
         if (fp != NULL) {
             char line[MAX_BUFFER_SIZE];
@@ -1770,7 +1770,7 @@ Dalam loop while, server membaca setiap baris dari file menggunakan fgets. Data 
 Dengan menggunakan strtok, setiap baris dibagi menjadi token yang dipisahkan oleh koma (,). Token pertama dalam setiap baris adalah hari tayang anime. Nilai token tersebut disalin ke dalam variabel temp_day.
 Setiap karakter dalam temp_day dikonversi menjadi huruf kecil menggunakan loop for. Ini dilakukan untuk memastikan perbandingan string tidak peka terhadap besar kecilnya huruf.
 Server membandingkan nilai temp_day (hari dalam baris CSV) dengan argumen day yang diterima dari klien. Jika kedua nilai tersebut sama, artinya anime tersebut memiliki hari tayang yang sesuai dengan argumen.
-```
+```bash
 token = strtok(NULL, ",");
 token = strtok(NULL, ",");
 token = strtok(NULL, ",");
@@ -1779,7 +1779,7 @@ strcat(response, "\n");
 ```
 Jika hari anime sesuai dengan argumen, server menambahkan judul anime tersebut ke dalam respons yang akan dikirim kembali kepada klien. Judul anime ditambahkan ke dalam variabel response dengan menambahkan karakter baru (\n) di akhir setiap judul.
 
-```
+```bash
 int main() {
     int server_fd, client_socket;
     struct sockaddr_in address;
@@ -1833,7 +1833,7 @@ int main() {
 ```
 Variabel server_fd digunakan untuk menyimpan file descriptor dari socket server, sedangkan client_socket digunakan untuk menyimpan file descriptor dari socket klien yang terhubung. Variabel address digunakan untuk menyimpan alamat server, sedangkan addrlen digunakan untuk menyimpan ukuran alamat.
 Di sini, server membuat socket menggunakan fungsi socket. Socket ini digunakan untuk menerima koneksi dari klien. Jika pembuatan socket gagal, pesan kesalahan dicetak dan program keluar dengan status kesalahan.
-```
+```bash
 address.sin_family = AF_INET;
 address.sin_addr.s_addr = INADDR_ANY;
 address.sin_port = htons(PORT);
@@ -1841,7 +1841,7 @@ address.sin_port = htons(PORT);
 ```
 Baris-baris ini mengatur alamat server. sin_family disetel ke AF_INET untuk menunjukkan bahwa ini adalah alamat IPv4. sin_addr.s_addr disetel ke INADDR_ANY agar server dapat menerima koneksi dari semua antarmuka jaringan yang tersedia. sin_port disetel ke htons(PORT) untuk menentukan port tempat server akan mendengarkan.
 
-```
+```bash
 if (bind(server_fd, (struct sockaddr*)&address, sizeof(address)) < 0) {
     perror("Bind failed");
     exit(EXIT_FAILURE);
@@ -1851,7 +1851,7 @@ if (bind(server_fd, (struct sockaddr*)&address, sizeof(address)) < 0) {
 Fungsi bind digunakan untuk mengikat socket server ke alamat yang telah ditentukan. Jika pengikatan gagal, pesan kesalahan dicetak dan program keluar dengan status kesalahan.
 Fungsi listen digunakan untuk mulai mendengarkan koneksi masuk pada socket server. Parameter kedua adalah jumlah koneksi yang dapat ditangani secara bersamaan.
 
-```
+```bash
 while (1) {
     // Menerima koneksi masuk
     if ((client_socket = accept(server_fd, (struct sockaddr*)&address, (socklen_t*)&addrlen)) < 0) {
