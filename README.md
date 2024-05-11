@@ -1873,7 +1873,7 @@ Fungsi main mengembalikan nilai 0 untuk menandakan bahwa program berjalan dengan
 Program saya belum berjalan dengan sempurna. akhirnya saya memutuskan untuk membuat program yang baru lagi dari awal. agar masalah saya dapat terselesaikan.
 
 #### client.c
-```
+```bash
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -1935,7 +1935,7 @@ int main() {
 ```
 
 #### server.c
-```
+```bash
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -2244,7 +2244,7 @@ int main() {
 Kesalahan saya pada server.c adalah:
 
 terdapat kesalahan pada fungsi `handle_client_request`
-```
+```bash
 read(client_socket, buffer, MAX_BUFFER_SIZE);
 sscanf(buffer, "%s %[^\n]", command, args);
 ```
@@ -2255,7 +2255,7 @@ Untuk memperbaiki ini, Anda perlu menambahkan validasi pada pesan yang diterima 
 Program kedua tidak menggunakan fungsi `write_to_change_log` yang bertanggung jawab untuk mencatat perubahan pada daftar anime ke dalam file log. Ini berarti tidak ada pencatatan perubahan yang dilakukan pada daftar anime, yang mungkin penting untuk audit dan pelacakan.
 
 Kesalahan pada client.c saya adalah:
-```
+```bash
 // Send commands to server and receive responses
 while (1) {
     printf("Enter command: ");
