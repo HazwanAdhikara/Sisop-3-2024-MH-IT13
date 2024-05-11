@@ -1623,6 +1623,8 @@ int main() {
 ```
 
 #### > Penjelasan
+
+####client.c
 ```bash
 #include
 #define PORT 8080
@@ -1674,5 +1676,197 @@ Menampilkan respons dari server ke layar.
 Membersihkan buffer setelah penggunaan agar tidak ada data yang tersisa.
 Menutup soket setelah selesai digunakan.
 
-#### > Dokumentasi
+####server.c
+```
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <fcntl.h>
+#include <time.h>
+#include <ctype.h> // Untuk menggunakan fungsi tolower()
+```
+Baris-baris ini mengimpor pustaka yang diperlukan untuk pengoperasian socket, manipulasi string, operasi file, dan fungsi waktu.
+
+```
+#define PORT 8080
+#define MAX_BUFFER_SIZE 1024
+#define MAX_CHANGE_LOG_SIZE 1024
+```
+Ini mendefinisikan konstanta untuk nomor port server, ukuran maksimum buffer, dan ukuran maksimum log perubahan.
+
+
+```
+void write_to_change_log(const char* type, const char* message) {
+    time_t now;
+    struct tm* local_time;
+    char change_log_entry[MAX_CHANGE_LOG_SIZE];
+
+    // Get current time
+    now = time(NULL);
+    local_time = localtime(&now);
+
+    // Format log entry
+    strftime(change_log_entry, MAX_CHANGE_LOG_SIZE, "[%d/%m/%y] [%H:%M:%S]", local_time);
+
+    // Write to change log file
+    FILE* fp = fopen("change.log", "a");
+    if (fp != NULL) {
+        fprintf(fp, "%s [%s] %s\n", change_log_entry, type, message);
+        fclose(fp);
+    }
+}
+```
+time_t now; dan struct tm* local_time;: Membuat variabel untuk menyimpan waktu saat ini dan untuk menyimpan waktu dalam bentuk struktur tm.
+now = time(NULL);: Mengambil waktu saat ini dari sistem dalam format time_t.
+local_time = localtime(&now);: Mengonversi waktu dalam format time_t ke waktu lokal dalam struktur tm.
+strftime(change_log_entry, MAX_CHANGE_LOG_SIZE, "[%d/%m/%y] [%H:%M:%S]", local_time);: Memformat waktu dalam struktur tm ke dalam string dengan format tertentu dan menyimpannya dalam change_log_entry.
+FILE* fp = fopen("change.log", "a");: Membuka file change.log dalam mode append ("a"), yang berarti data baru akan ditambahkan ke akhir file.
+if (fp != NULL) { ... }: Memeriksa apakah file log berhasil dibuka.
+fprintf(fp, "%s [%s] %s\n", change_log_entry, type, message);: Menulis entri log ke file dengan format yang ditentukan, yang terdiri dari timestamp (change_log_entry), jenis pesan, dan pesan itu sendiri.
+
+```
+void handle_client_request(int client_socket) {
+    char buffer[MAX_BUFFER_SIZE] = {0};
+    char response[MAX_BUFFER_SIZE] = {0};
+    char command[MAX_BUFFER_SIZE] = {0};
+    char args[MAX_BUFFER_SIZE] = {0};
+
+    // Read client command and arguments
+    read(client_socket, buffer, MAX_BUFFER_SIZE);
+    sscanf(buffer, "%s %[^\n]", command, args);
+```
+char buffer[MAX_BUFFER_SIZE] = {0};, char response[MAX_BUFFER_SIZE] = {0};, char command[MAX_BUFFER_SIZE] = {0};, char args[MAX_BUFFER_SIZE] = {0};: Mendeklarasikan array karakter untuk menyimpan data yang diterima dan yang akan dikirim sebagai respons, serta untuk menyimpan perintah dan argumen yang dipisahkan.
+read(client_socket, buffer, MAX_BUFFER_SIZE);: Membaca data yang dikirim oleh klien ke socket.
+sscanf(buffer, "%s %[^\n]", command, args);: Mem-parsing data yang diterima dari klien. Data ini dianggap terdiri dari sebuah string perintah (command) dan argumen tambahan (args). %s digunakan untuk membaca string tanpa spasi, dan %[^\n] digunakan untuk membaca string hingga karakter newline.
+
+```
+FILE* fp = fopen("myanimelist.csv", "r");
+        if (fp != NULL) {
+            char line[MAX_BUFFER_SIZE];
+            while (fgets(line, sizeof(line), fp) != NULL) {
+                char* token = strtok(line, ",");
+                char temp_day[MAX_BUFFER_SIZE];
+                strcpy(temp_day, token);
+                for (int i = 0; temp_day[i]; i++) {
+                    temp_day[i] = tolower(temp_day[i]);
+                }
+                if (strcmp(temp_day, day) == 0) {
+                    token = strtok(NULL, ",");
+                    token = strtok(NULL, ",");
+                    token = strtok(NULL, ",");
+                    strcat(response, token);
+                    strcat(response, "\n");
+                }
+
+```
+Fungsi fopen digunakan untuk membuka file myanimelist.csv dalam mode baca ("r"). Ini memungkinkan server untuk membaca data dari file tersebut.
+Baris ini memeriksa apakah file myanimelist.csv berhasil dibuka. Jika file berhasil dibuka, server dapat melanjutkan untuk membaca data dari file.
+Dalam loop while, server membaca setiap baris dari file menggunakan fgets. Data dari setiap baris disimpan dalam variabel line.
+Dengan menggunakan strtok, setiap baris dibagi menjadi token yang dipisahkan oleh koma (,). Token pertama dalam setiap baris adalah hari tayang anime. Nilai token tersebut disalin ke dalam variabel temp_day.
+Setiap karakter dalam temp_day dikonversi menjadi huruf kecil menggunakan loop for. Ini dilakukan untuk memastikan perbandingan string tidak peka terhadap besar kecilnya huruf.
+Server membandingkan nilai temp_day (hari dalam baris CSV) dengan argumen day yang diterima dari klien. Jika kedua nilai tersebut sama, artinya anime tersebut memiliki hari tayang yang sesuai dengan argumen.
+```
+token = strtok(NULL, ",");
+token = strtok(NULL, ",");
+token = strtok(NULL, ",");
+strcat(response, token);
+strcat(response, "\n");
+```
+Jika hari anime sesuai dengan argumen, server menambahkan judul anime tersebut ke dalam respons yang akan dikirim kembali kepada klien. Judul anime ditambahkan ke dalam variabel response dengan menambahkan karakter baru (\n) di akhir setiap judul.
+
+```
+int main() {
+    int server_fd, client_socket;
+    struct sockaddr_in address;
+    int addrlen = sizeof(address);
+
+    // Create server socket
+    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
+        perror("Socket creation failed");
+        exit(EXIT_FAILURE);
+    }
+
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = INADDR_ANY;
+    address.sin_port = htons(PORT);
+
+    // Bind server socket to port
+    if (bind(server_fd, (struct sockaddr*)&address, sizeof(address)) < 0) {
+        perror("Bind failed");
+        exit(EXIT_FAILURE);
+    }
+
+    // Listen for incoming connections
+    if (listen(server_fd, 3) < 0) {
+        perror("Listen failed");
+        exit(EXIT_FAILURE);
+    }
+
+    printf("Server started on port %d\n", PORT);
+
+    // Accept incoming connections and handle requests
+    while (1) {
+        printf("Waiting for incoming connections...\n");
+
+        if ((client_socket = accept(server_fd, (struct sockaddr*)&address, (socklen_t*)&addrlen)) < 0) {
+            perror("Accept failed");
+            exit(EXIT_FAILURE);
+        }
+
+        printf("New client connected\n");
+
+        // Handle client request
+        handle_client_request(client_socket);
+
+        // Close the connection with the client
+        close(client_socket);
+        printf("Client disconnected\n");
+    }
+
+    return 0;
+}
+```
+Variabel server_fd digunakan untuk menyimpan file descriptor dari socket server, sedangkan client_socket digunakan untuk menyimpan file descriptor dari socket klien yang terhubung. Variabel address digunakan untuk menyimpan alamat server, sedangkan addrlen digunakan untuk menyimpan ukuran alamat.
+Di sini, server membuat socket menggunakan fungsi socket. Socket ini digunakan untuk menerima koneksi dari klien. Jika pembuatan socket gagal, pesan kesalahan dicetak dan program keluar dengan status kesalahan.
+```
+address.sin_family = AF_INET;
+address.sin_addr.s_addr = INADDR_ANY;
+address.sin_port = htons(PORT);
+
+```
+Baris-baris ini mengatur alamat server. sin_family disetel ke AF_INET untuk menunjukkan bahwa ini adalah alamat IPv4. sin_addr.s_addr disetel ke INADDR_ANY agar server dapat menerima koneksi dari semua antarmuka jaringan yang tersedia. sin_port disetel ke htons(PORT) untuk menentukan port tempat server akan mendengarkan.
+
+```
+if (bind(server_fd, (struct sockaddr*)&address, sizeof(address)) < 0) {
+    perror("Bind failed");
+    exit(EXIT_FAILURE);
+}
+
+```
+Fungsi bind digunakan untuk mengikat socket server ke alamat yang telah ditentukan. Jika pengikatan gagal, pesan kesalahan dicetak dan program keluar dengan status kesalahan.
+Fungsi listen digunakan untuk mulai mendengarkan koneksi masuk pada socket server. Parameter kedua adalah jumlah koneksi yang dapat ditangani secara bersamaan.
+
+```
+while (1) {
+    // Menerima koneksi masuk
+    if ((client_socket = accept(server_fd, (struct sockaddr*)&address, (socklen_t*)&addrlen)) < 0) {
+        perror("Accept failed");
+        exit(EXIT_FAILURE);
+    }
+    // ...
+}
+// Close the connection with the client
+close(client_socket);
+printf("Client disconnected\n");
+return 0;
+```
+Server berada dalam loop tanpa akhir untuk terus menerima koneksi dari klien. Saat koneksi diterima, fungsi accept digunakan untuk menerima koneksi tersebut. Setelah koneksi diterima, server memanggil fungsi handle_client_request untuk menangani permintaan dari klien.
+Setelah permintaan dari klien ditangani, koneksi dengan klien ditutup dan server siap menerima koneksi baru.
+Fungsi main mengembalikan nilai 0 untuk menandakan bahwa program berjalan dengan sukses.
+
 #### > Revisi
